@@ -37,10 +37,11 @@ Perfect for **sticky notes**, **cheat sheets**, **keybindings**, or any text you
 - 📌 **Always on top**: pinned using `layer-shell` on the compositor.
 - 🖥️ **Multi‑monitor aware**: choose target monitor with `--screen-index`.
 - 🧭 **NEW: Custom position**: In config.ini it is now possible to specify position (`top-left/right`, `bottom-left/right` or `custom` via x,y coordinates.
+- 📋 **NEW: Copy-on-select mode**: Toggle an interactive mode where you can select text with mouse/keyboard (shift+arrows, ctrl+a) and copy to clipboard automatically when focusing away.
 - ⚡ **Hot‑reloading config**: edit `~/.config/koverlay/config.ini` and changes apply immediately.
 - ✍️ **Customizable text**: font family, size, color, bold.
 - 🌫️ **Panel background opacity**: fade the backdrop while keeping text fully opaque.
-- 🚌 **DBus control**: `Toggle`, `Show`, `Hide` for easy desktop shortcuts.
+- 🚌 **DBus control**: `Toggle`, `Show`, `Hide`, `ToggleCopyMode` for easy desktop shortcuts.
 - 📦 **RPM packaging** via CPack.
 
 > **Wayland only.** Tested on Fedora KDE (KWin/Wayland). Other Wayland compositors may work, but KOverlay currently targets KDE Plasmashell/KWin + LayerShellQt.
@@ -191,13 +192,14 @@ KOverlay registers a DBus service on the **session bus** while running:
 - **Service:** `org.erx.KOverlay`
 - **Object path:** `/Overlay`
 - **Interface:** `org.erx.KOverlay`
-- **Methods:** `Toggle()`, `Show()`, `Hide()`
+- **Methods:** `Toggle()`, `Show()`, `Hide()`, `ToggleCopyMode()`
 
 ### CLI examples (qdbus)
 ```bash
 qdbus org.erx.KOverlay /Overlay org.erx.KOverlay.Toggle
 qdbus org.erx.KOverlay /Overlay org.erx.KOverlay.Show
 qdbus org.erx.KOverlay /Overlay org.erx.KOverlay.Hide
+qdbus org.erx.KOverlay /Overlay org.erx.KOverlay.ToggleCopyMode
 ```
 
 ### KDE Global Shortcuts
@@ -205,6 +207,24 @@ qdbus org.erx.KOverlay /Overlay org.erx.KOverlay.Hide
 2. Add a **Command/URL** action.
 3. Command: `qdbus org.erx.KOverlay /Overlay org.erx.KOverlay.Toggle`
 4. Assign your preferred keybinding (e.g., `Meta+H`).
+
+### Copy-on-Select Mode
+The `ToggleCopyMode()` method enables an interactive mode where:
+- The overlay becomes **clickable and interactive** (no longer click-through)
+- You can **select text** using:
+  - **Mouse**: Click and drag to select text
+  - **Keyboard**: Use `Shift+Arrow keys` to adjust selection, `Ctrl+A` to select all
+- Selected text is **automatically copied to the Wayland clipboard** when you:
+  - **Click outside** the overlay window
+  - **Alt+Tab** to another application
+  - Generally **de-focus** the overlay in any way
+- After copying, the **selection is automatically cleared** and ready for the next copy operation
+
+This is perfect for quickly copying keybindings, commands, or notes from your overlay!
+
+**Example keybinding setup:**
+- `Meta+H` → Toggle overlay visibility (standard mode)
+- `Meta+Shift+H` → Toggle copy-on-select mode
 
 > The DBus registration is **ephemeral** (per session); it re‑appears when the app starts.
 

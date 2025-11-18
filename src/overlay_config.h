@@ -11,6 +11,7 @@ class OverlayConfig : public QObject {
     Q_PROPERTY(QString textColor READ textColor WRITE setTextColor NOTIFY textColorChanged)
     Q_PROPERTY(bool bold READ bold WRITE setBold NOTIFY boldChanged)
     Q_PROPERTY(double panelOpacity READ panelOpacity WRITE setPanelOpacity NOTIFY panelOpacityChanged)
+    Q_PROPERTY(bool copyMode READ copyMode WRITE setCopyMode NOTIFY copyModeChanged)
 
     // Positioning
     Q_PROPERTY(QString position READ position WRITE setPosition NOTIFY positionChanged)
@@ -87,6 +88,15 @@ public:
         emit panelOpacityChanged();
     }
 
+    // copy mode
+    bool copyMode() const { return copyMode_; }
+
+    void setCopyMode(bool v) {
+        if (copyMode_ == v) return;
+        copyMode_ = v;
+        emit copyModeChanged();
+    }
+
     // Positioning (QString normalized lower-case)
     const QString &position() const { return position_; }
 
@@ -157,6 +167,8 @@ signals:
 
     void panelOpacityChanged();
 
+    void copyModeChanged();
+
     void positionChanged();
 
 private:
@@ -170,6 +182,7 @@ private:
     QString textColor_ = QStringLiteral("#FFFFFF");
     bool bold_ = true;
     double panelOpacity_ = 0.35; // matches #59 alpha (~89/255)
+    bool copyMode_ = false;
 
     // position
     QString position_ = QStringLiteral("top-right");

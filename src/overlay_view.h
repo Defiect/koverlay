@@ -13,13 +13,23 @@ public:
     // screen selector 0..N-1
     void selectScreenByIndex(int idx);
 
+    // Method callable from QML to store selected text
+    Q_INVOKABLE void setSelectedText(const QString &text);
+
 public slots:
     void toggle();
     void showOverlay();
     void hideOverlay();
+    void toggleCopyMode();
+
+signals:
+    void clearSelection();
 
 private:
     void applyEmptyInputRegion();
+    void applyFullInputRegion();
+    void copySelectionToClipboard();
 
     OverlayConfig *cfg_;
+    QString selectedText_;
 };
