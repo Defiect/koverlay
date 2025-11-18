@@ -223,7 +223,7 @@ When activated via the `ToggleCopyMode` method, the overlay becomes interactive:
   - Click outside the overlay
   - Alt-Tab to another application
   - Close the copy mode
-- **Visual indicator**: A pulsing green dot appears in the top-right corner when in copy mode
+- **Selection cleared**: After copying to clipboard, the text selection is automatically cleared
 
 > The DBus registration is **ephemeral** (per session); it re‑appears when the app starts.
 

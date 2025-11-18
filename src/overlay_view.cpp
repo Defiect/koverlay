@@ -154,10 +154,19 @@ void OverlayView::copySelectionToClipboard() {
     
     qInfo() << "koverlay: copied" << pendingSelection_.length() << "characters to clipboard";
     pendingSelection_.clear();
+    
+    // Clear the selection in the TextEdit
+    if (textEditObject_) {
+        QMetaObject::invokeMethod(textEditObject_, "clearSelection");
+    }
 }
 
 void OverlayView::updateSelection(const QString &selection) {
     pendingSelection_ = selection;
+}
+
+void OverlayView::setTextEdit(QObject *textEdit) {
+    textEditObject_ = textEdit;
 }
 
 void OverlayView::applyEmptyInputRegion() {

@@ -79,25 +79,17 @@ Rectangle {
                     forceActiveFocus();
                 }
             }
-        }
 
-        // Visual indicator that we're in copy mode
-        Rectangle {
-            visible: copyMode
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.margins: 8
-            width: 12
-            height: 12
-            radius: 6
-            color: "#4CAF50"
-            opacity: 0.8
+            // Function to clear selection, callable from C++
+            function clearSelection() {
+                deselect();
+            }
 
-            SequentialAnimation on opacity {
-                running: copyMode
-                loops: Animation.Infinite
-                NumberAnimation { from: 0.3; to: 0.9; duration: 800 }
-                NumberAnimation { from: 0.9; to: 0.3; duration: 800 }
+            // Store reference in overlayView
+            Component.onCompleted: {
+                if (overlayView) {
+                    overlayView.setTextEdit(copyContent);
+                }
             }
         }
     }
