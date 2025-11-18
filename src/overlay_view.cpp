@@ -23,6 +23,7 @@ OverlayView::OverlayView(OverlayConfig *cfg, QWindow *parent)
     // expose config to QML
     rootContext()->setContextProperty(QStringLiteral("cfg"), cfg_);
     rootContext()->setContextProperty(QStringLiteral("overlayView"), this);
+    rootContext()->setContextProperty(QStringLiteral("copyMode"), false);
 
     // layer-shell setup
     auto *ls = LayerShellQt::Window::get(this);
@@ -88,9 +89,8 @@ void OverlayView::showCopyMode() {
     
     applyFullInputRegion();
     
-    // Switch QML to copy mode view
+    // Switch to copy mode in QML
     rootContext()->setContextProperty(QStringLiteral("copyMode"), true);
-    setSource(QUrl(QStringLiteral("qrc:/koverlay/CopyModeOverlay.qml")));
     
     show();
     raise();
@@ -117,7 +117,6 @@ void OverlayView::hideCopyMode() {
     
     // Switch back to normal overlay view
     rootContext()->setContextProperty(QStringLiteral("copyMode"), false);
-    setSource(QUrl(QStringLiteral("qrc:/koverlay/Overlay.qml")));
     
     hide();
     
