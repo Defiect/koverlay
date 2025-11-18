@@ -2,5 +2,6 @@
     <qresource prefix="/koverlay">
         <!-- Path is relative to this .qrc file's directory -->
         <file>Overlay.qml</file>
+        <file>CopyModeOverlay.qml</file>
     </qresource>
 </RCC>
