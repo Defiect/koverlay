@@ -4,6 +4,8 @@
 
 
 [![Copr build status](https://copr.fedorainfracloud.org/coprs/erx96/KOverlay/package/koverlay/status_image/last_build.png)](https://copr.fedorainfracloud.org/coprs/erx96/KOverlay/package/koverlay/)
+[![CI Build](https://github.com/Defiect/koverlay/actions/workflows/ci.yml/badge.svg)](https://github.com/Defiect/koverlay/actions/workflows/ci.yml)
+[![Release](https://github.com/Defiect/koverlay/actions/workflows/release.yml/badge.svg)](https://github.com/Defiect/koverlay/actions/workflows/release.yml)
 
 
 
