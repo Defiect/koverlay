@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    
+    steps:
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+  build-rpm:
+    name: Build and Upload RPM
+    runs-on: ubuntu-latest
+    needs: create-release
+    container:
+      image: fedora:42
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        dnf install -y \
+          qt6-qtbase-devel \
+          qt6-qtdeclarative-devel \
+          qt6-qtwayland-devel \
+          layer-shell-qt-devel \
+          wayland-devel \
+          cmake \
+          gcc-c++ \
+          make \
+          rpm-build
+    
+    - name: Build RPM
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR=RPM ..
+        cmake --build . -j$(nproc)
+        cpack -G RPM
+    
+    - name: Get RPM filename
+      id: get_rpm
+      run: |
+        RPM_FILE=$(ls build/*.rpm | head -n1)
+        echo "rpm_file=$RPM_FILE" >> $GITHUB_OUTPUT
+        echo "rpm_name=$(basename $RPM_FILE)" >> $GITHUB_OUTPUT
+    
+    - name: Upload RPM to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ${{ steps.get_rpm.outputs.rpm_file }}
+        asset_name: ${{ steps.get_rpm.outputs.rpm_name }}
+        asset_content_type: application/x-rpm
+
+  build-binary:
+    name: Build and Upload Binary
+    runs-on: ubuntu-latest
+    needs: create-release
+    container:
+      image: fedora:42
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        dnf install -y \
+          qt6-qtbase-devel \
+          qt6-qtdeclarative-devel \
+          qt6-qtwayland-devel \
+          layer-shell-qt-devel \
+          wayland-devel \
+          cmake \
+          gcc-c++ \
+          make
+    
+    - name: Build Binary
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        cmake --build . -j$(nproc)
+        strip koverlay
+    
+    - name: Create tarball
+      run: |
+        cd build
+        tar czf koverlay-${{ github.ref_name }}-linux-x86_64.tar.gz koverlay
+    
+    - name: Upload Binary to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: build/koverlay-${{ github.ref_name }}-linux-x86_64.tar.gz
+        asset_name: koverlay-${{ github.ref_name }}-linux-x86_64.tar.gz
+        asset_content_type: application/gzip

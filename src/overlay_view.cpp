@@ -5,6 +5,9 @@
 #include <QScreen>
 #include <QtGui/qpa/qplatformnativeinterface.h>
 #include <QDebug>
+#include <QClipboard>
+#include <QGuiApplication>
+#include <QEvent>
 
 #include <wayland-client.h>
 #include <LayerShellQt/Window>
@@ -19,6 +22,8 @@ OverlayView::OverlayView(OverlayConfig *cfg, QWindow *parent)
 
     // expose config to QML
     rootContext()->setContextProperty(QStringLiteral("cfg"), cfg_);
+    rootContext()->setContextProperty(QStringLiteral("overlayView"), this);
+    rootContext()->setContextProperty(QStringLiteral("copyMode"), false);
 
     // layer-shell setup
     auto *ls = LayerShellQt::Window::get(this);
@@ -36,7 +41,9 @@ OverlayView::OverlayView(OverlayConfig *cfg, QWindow *parent)
         if (!v) return;
         if (auto *ls = LayerShellQt::Window::get(this))
             ls->setLayer(LayerShellQt::Window::LayerOverlay);
-        applyEmptyInputRegion();
+        if (!copyMode_) {
+            applyEmptyInputRegion();
+        }
     });
 }
 
@@ -59,6 +66,108 @@ void OverlayView::showOverlay() {
 
 
 void OverlayView::hideOverlay() { hide(); }
+
+void OverlayView::toggleCopyMode() {
+    if (copyMode_) {
+        hideCopyMode();
+    } else {
+        showCopyMode();
+    }
+}
+
+void OverlayView::showCopyMode() {
+    copyMode_ = true;
+    pendingSelection_.clear();
+    
+    // Enable input for copy mode
+    setFlag(Qt::WindowTransparentForInput, false);
+    
+    // Enable keyboard interactivity for text selection
+    if (auto *ls = LayerShellQt::Window::get(this)) {
+        ls->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
+    }
+    
+    applyFullInputRegion();
+    
+    // Switch to copy mode in QML
+    rootContext()->setContextProperty(QStringLiteral("copyMode"), true);
+    
+    show();
+    raise();
+    requestActivate();
+    
+    qInfo() << "koverlay: copy mode activated";
+}
+
+void OverlayView::hideCopyMode() {
+    // Copy any pending selection before hiding
+    if (!pendingSelection_.isEmpty()) {
+        copySelectionToClipboard();
+    }
+    
+    copyMode_ = false;
+    pendingSelection_.clear();
+    
+    // Disable input and keyboard interactivity
+    setFlag(Qt::WindowTransparentForInput, true);
+    
+    if (auto *ls = LayerShellQt::Window::get(this)) {
+        ls->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    }
+    
+    // Switch back to normal overlay view
+    rootContext()->setContextProperty(QStringLiteral("copyMode"), false);
+    
+    hide();
+    
+    qInfo() << "koverlay: copy mode deactivated";
+}
+
+bool OverlayView::event(QEvent *event) {
+    // Handle focus out events in copy mode
+    if (copyMode_ && event->type() == QEvent::FocusOut) {
+        qInfo() << "koverlay: focus lost, copying selection to clipboard";
+        if (!pendingSelection_.isEmpty()) {
+            copySelectionToClipboard();
+        }
+    }
+    
+    return QQuickView::event(event);
+}
+
+void OverlayView::applyFullInputRegion() {
+    auto *pni = QGuiApplication::platformNativeInterface();
+    auto *wlSurf = static_cast<wl_surface*>(pni->nativeResourceForWindow("surface", this));
+    if (!wlSurf) return;
+    
+    // Set input region to full surface (default behavior)
+    wl_surface_set_input_region(wlSurf, nullptr);
+}
+
+void OverlayView::copySelectionToClipboard() {
+    if (pendingSelection_.isEmpty()) {
+        return;
+    }
+    
+    QClipboard *clipboard = QGuiApplication::clipboard();
+    clipboard->setText(pendingSelection_, QClipboard::Clipboard);
+    
+    qInfo() << "koverlay: copied" << pendingSelection_.length() << "characters to clipboard";
+    pendingSelection_.clear();
+    
+    // Clear the selection in the TextEdit
+    if (textEditObject_) {
+        QMetaObject::invokeMethod(textEditObject_, "clearSelection");
+    }
+}
+
+void OverlayView::updateSelection(const QString &selection) {
+    pendingSelection_ = selection;
+}
+
+void OverlayView::setTextEdit(QObject *textEdit) {
+    textEditObject_ = textEdit;
+}
 
 void OverlayView::applyEmptyInputRegion() {
     auto *pni = QGuiApplication::platformNativeInterface();

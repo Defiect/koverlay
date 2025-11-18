@@ -7,3 +7,6 @@ OverlayAdaptor::OverlayAdaptor(OverlayView *v)
 void OverlayAdaptor::Toggle() { v_->toggle(); }
 void OverlayAdaptor::Show()   { v_->showOverlay(); }
 void OverlayAdaptor::Hide()   { v_->hideOverlay(); }
+void OverlayAdaptor::ToggleCopyMode() { v_->toggleCopyMode(); }
+void OverlayAdaptor::ShowCopyMode()   { v_->showCopyMode(); }
+void OverlayAdaptor::HideCopyMode()   { v_->hideCopyMode(); }

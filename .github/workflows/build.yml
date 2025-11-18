@@ -1,0 +1,186 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-fedora:
+    name: Build on Fedora (Primary Target)
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:42
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        dnf install -y \
+          qt6-qtbase-devel \
+          qt6-qtdeclarative-devel \
+          qt6-qtwayland-devel \
+          layer-shell-qt-devel \
+          wayland-devel \
+          cmake \
+          gcc-c++ \
+          make
+    
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . -j$(nproc)
+    
+    - name: Verify binary
+      run: |
+        ls -lh build/koverlay
+        file build/koverlay
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: koverlay-fedora
+        path: build/koverlay
+        retention-days: 7
+
+  build-ubuntu:
+    name: Build on Ubuntu (Test)
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          qt6-base-dev \
+          qt6-base-private-dev \
+          qt6-declarative-dev \
+          qt6-wayland-dev \
+          liblayershellqtinterface-dev \
+          libwayland-dev \
+          libxkbcommon-dev \
+          cmake \
+          build-essential
+    
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        # Ubuntu might have older Qt6, allow version mismatch for testing
+        cmake -DCMAKE_BUILD_TYPE=Release .. || \
+        cmake -DCMAKE_BUILD_TYPE=Release -DQt6_ALLOW_VERSION_MISMATCH=ON ..
+    
+    - name: Build
+      run: |
+        cd build
+        cmake --build . -j$(nproc)
+    
+    - name: Verify binary
+      run: |
+        ls -lh build/koverlay
+        file build/koverlay
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          qt6-base-dev \
+          qt6-base-private-dev \
+          qt6-declarative-dev \
+          qt6-wayland-dev \
+          liblayershellqtinterface-dev \
+          libwayland-dev \
+          libxkbcommon-dev \
+          cmake \
+          build-essential \
+          cppcheck \
+          clang-tidy
+    
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --inconclusive --xml --xml-version=2 \
+          --suppress=missingIncludeSystem \
+          src/ 2> cppcheck-report.xml || true
+        cppcheck --enable=warning,style,performance,portability \
+          --suppress=missingIncludeSystem \
+          src/ || true
+    
+    - name: Configure for clang-tidy
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DCMAKE_BUILD_TYPE=Release .. || \
+        cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+              -DCMAKE_BUILD_TYPE=Release -DQt6_ALLOW_VERSION_MISMATCH=ON ..
+    
+    - name: Run clang-tidy
+      run: |
+        if [ -f build/compile_commands.json ]; then
+          clang-tidy -p build src/*.cpp -- || true
+        fi
+      continue-on-error: true
+
+  package-rpm:
+    name: Build RPM Package
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:42
+    needs: build-fedora
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        dnf install -y \
+          qt6-qtbase-devel \
+          qt6-qtdeclarative-devel \
+          qt6-qtwayland-devel \
+          layer-shell-qt-devel \
+          wayland-devel \
+          cmake \
+          gcc-c++ \
+          make \
+          rpm-build
+    
+    - name: Build RPM
+      run: |
+        mkdir -p build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=Release -DCPACK_GENERATOR=RPM ..
+        cmake --build . -j$(nproc)
+        cpack -G RPM
+    
+    - name: Verify RPM
+      run: |
+        ls -lh build/*.rpm
+        rpm -qlp build/*.rpm || true
+    
+    - name: Upload RPM
+      uses: actions/upload-artifact@v4
+      with:
+        name: koverlay-rpm
+        path: build/*.rpm
+        retention-days: 30

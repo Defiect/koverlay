@@ -12,6 +12,9 @@ public slots:
     Q_NOREPLY void Toggle();
     Q_NOREPLY void Show();
     Q_NOREPLY void Hide();
+    Q_NOREPLY void ToggleCopyMode();
+    Q_NOREPLY void ShowCopyMode();
+    Q_NOREPLY void HideCopyMode();
 private:
     OverlayView *v_;
 };
