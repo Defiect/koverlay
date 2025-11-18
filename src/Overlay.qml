@@ -79,6 +79,8 @@ Rectangle {
                     // Store selection for later copying
                     if (selectedText.length > 0) {
                         root.Window.window.setSelectedText(selectedText)
+                    } else {
+                        root.Window.window.setSelectedText("")
                     }
                 }
 
