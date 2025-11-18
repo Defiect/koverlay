@@ -219,7 +219,7 @@ The `ToggleCopyMode()` method enables an interactive mode where:
 - Selected text is **automatically copied to the Wayland clipboard** when you:
   - **Click outside** the overlay window
   - **Alt+Tab** to another application
-  - Generally **de-focus** the overlay in any way
+  - Generally **defocus** the overlay in any way
 - After copying, the **selection is automatically cleared** and ready for the next copy operation
 
 This is perfect for quickly copying keybindings, commands, or notes from your overlay!
