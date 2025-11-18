@@ -1,0 +1,109 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-fedora:
+    name: Build on Fedora
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            cmake \
+            gcc-c++ \
+            make \
+            qt6-qtbase-devel \
+            qt6-qtdeclarative-devel \
+            qt6-qtwayland-devel \
+            layer-shell-qt-devel \
+            wayland-devel \
+            rpm-build
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build . -j$(nproc)
+
+      - name: Verify binary
+        run: |
+          ls -lh build/koverlay
+          file build/koverlay
+          ldd build/koverlay || true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: koverlay-binary-fedora
+          path: build/koverlay
+          retention-days: 7
+
+  build-rpm:
+    name: Build RPM Package
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            cmake \
+            gcc-c++ \
+            make \
+            qt6-qtbase-devel \
+            qt6-qtdeclarative-devel \
+            qt6-qtwayland-devel \
+            layer-shell-qt-devel \
+            wayland-devel \
+            rpm-build \
+            rpmdevtools
+
+      - name: Build RPM
+        run: |
+          ./build_rpm.sh
+
+      - name: List RPM contents
+        run: |
+          rpm -qlp build/koverlay-*.rpm || true
+          rpm -qip build/koverlay-*.rpm || true
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: koverlay-rpm
+          path: build/koverlay-*.rpm
+          retention-days: 30
+
+  lint-shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          shellcheck build_bin.sh build_rpm.sh run.sh || true

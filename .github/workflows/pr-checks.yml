@@ -1,0 +1,111 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  check-build:
+    name: Verify Build
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            cmake \
+            gcc-c++ \
+            make \
+            qt6-qtbase-devel \
+            qt6-qtdeclarative-devel \
+            qt6-qtwayland-devel \
+            layer-shell-qt-devel \
+            wayland-devel
+
+      - name: Check CMake configuration
+        run: |
+          mkdir -p build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+
+      - name: Build
+        run: |
+          cd build
+          cmake --build . -j$(nproc)
+
+      - name: Check for common issues
+        run: |
+          # Check if binary was created
+          if [ ! -f build/koverlay ]; then
+            echo "::error::Binary not created"
+            exit 1
+          fi
+
+          # Check binary is executable
+          if [ ! -x build/koverlay ]; then
+            echo "::error::Binary is not executable"
+            exit 1
+          fi
+
+          echo "::notice::Build checks passed!"
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Check file permissions
+        run: |
+          # Check that shell scripts are executable
+          for script in build_bin.sh build_rpm.sh run.sh; do
+            if [ -f "$script" ] && [ ! -x "$script" ]; then
+              echo "::warning::$script is not executable"
+            fi
+          done
+
+      - name: Check for TODO/FIXME comments
+        run: |
+          echo "Checking for TODO/FIXME comments..."
+          grep -r "TODO\|FIXME" src/ || echo "No TODO/FIXME found"
+
+      - name: Verify required files
+        run: |
+          REQUIRED_FILES="CMakeLists.txt README.md LICENSE src/main.cpp"
+          for file in $REQUIRED_FILES; do
+            if [ ! -f "$file" ]; then
+              echo "::error::Required file missing: $file"
+              exit 1
+            fi
+          done
+          echo "::notice::All required files present"
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - name: Check README has been updated
+        run: |
+          if git diff --name-only origin/main..HEAD | grep -q "^src/"; then
+            if ! git diff --name-only origin/main..HEAD | grep -q "README.md"; then
+              echo "::warning::Source code changed but README.md not updated. Consider updating documentation."
+            fi
+          fi
+
+      - name: Validate markdown
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y npm
+          sudo npm install -g markdownlint-cli
+          markdownlint README.md TESTING_ANALYSIS.md VERIFICATION_REPORT.md || true

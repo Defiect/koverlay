@@ -1,0 +1,109 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Create Release
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            cmake \
+            gcc-c++ \
+            make \
+            qt6-qtbase-devel \
+            qt6-qtdeclarative-devel \
+            qt6-qtwayland-devel \
+            layer-shell-qt-devel \
+            wayland-devel \
+            rpm-build \
+            rpmdevtools \
+            git
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build binary
+        run: |
+          ./build_bin.sh
+
+      - name: Build RPM
+        run: |
+          ./build_rpm.sh
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release_artifacts
+          cp build/koverlay release_artifacts/koverlay-${{ steps.get_version.outputs.VERSION }}-x86_64
+          cp build/koverlay-*.rpm release_artifacts/ || true
+          cd release_artifacts
+          sha256sum * > checksums.txt
+          cat checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release_artifacts/*
+          body: |
+            ## KOverlay ${{ steps.get_version.outputs.VERSION }}
+
+            ### Installation
+
+            #### Fedora (RPM)
+            ```bash
+            sudo dnf install ./koverlay-${{ steps.get_version.outputs.VERSION }}-*.rpm
+            ```
+
+            #### Binary (All Linux)
+            ```bash
+            chmod +x koverlay-${{ steps.get_version.outputs.VERSION }}-x86_64
+            sudo mv koverlay-${{ steps.get_version.outputs.VERSION }}-x86_64 /usr/local/bin/koverlay
+            ```
+
+            ### Dependencies
+            Required runtime dependencies:
+            - Qt6 (>= 6.5)
+            - LayerShellQt
+            - Wayland
+
+            See [README.md](README.md) for full documentation.
+
+            ### Checksums
+            See `checksums.txt` for SHA256 verification.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-copr:
+    name: Trigger COPR Build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: COPR Build Notification
+        run: |
+          echo "::notice::To trigger COPR build, push the tag to the COPR repository or manually trigger a build at https://copr.fedorainfracloud.org/coprs/erx96/KOverlay/"
